@@ -1,0 +1,256 @@
+---
+title: "Preparación de los datos"
+output:
+  word_document:
+    reference_docx: "plantilla_marca-personal.docx"
+    toc: TRUE
+
+---
+
+El presente documento tiene como finalidad la documentación del proceso y el código generados para la preparación de los datos en el marco de la prueba técnica solicitada.
+
+A continuación se listan y se explican todos los procedimientos llevados a cabo sobre los datos con el fin de prepararlos para la construcción del modelo.
+
+El presente proyecto se construye en su totalidad utilizando herramientas de libre distribución del software R.
+
+# Configuración
+
+La configuración del entorno de trabajo adecuado es necesaria para el correcto desarrollo del código que realizará al tarea. En este primer capítulo se requieren herramientas de procesamiento de datos y de programación básica.
+
+## Paquetes
+
+La configuración del entorno en cuanto a software se realiza por medio del aprovisionamiento de paquetes. Todos los paquetes utilizados se encuentran disponibles bajo licencias de softare libre, la mayoría de estos paquetes ha sido desarrollado por la empresa RStudio, cuya labor a nivel mundial es reconocida como pionera en este campo.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+
+```{r}
+library("readr")
+library("dplyr")
+library("tidyr", exclude = "extract")
+library("magrittr")
+
+```
+
+## Carga de datos
+
+Los datos son cargados y examinados para su posterior transformación.
+
+```{r}
+read_csv(
+  "01_datos/pcac_encuesta.csv"
+  ) -> pcac_encuesta
+read_csv(
+  "01_datos/pcac_oportunidades_comer.csv"
+  ) -> pcac_oportunidades_comer
+
+read_csv(
+  "01_datos/pcac_mac_gpi_clientes.csv"
+  ) -> pcac_mac_gpi_clientes
+
+read_csv(
+  "01_datos/pcac_capacidad_gerentes.csv"
+  ) -> pcac_capacidad_gerentes
+
+read_csv(
+  "01_datos/pcac_mac_gpi_ecas.csv"
+  ) -> pcac_mac_gpi_ecas
+
+read_csv(
+  "01_datos/pcac_mac_gpi_tenencia_prod.csv"
+  ) -> pcac_mac_gpi_tenencia_prod
+
+```
+
+
+Los conjuntos de datos son los siguientes:
+
+
+**pcac_mac_gpi_clientes:** Contiene la información de los clientes del segmento específico que estamos trabajando, la información de su zona y así mismo, el gerente y ejecutivo asignados, así mismo cuenta con la categorización comercial de inversión (A, B o C) y un score de cliente (mientras más alto mejor) que indica la deseabilidad comercial de este. Este score es generado en un proceso independiente a este modelo.
+
+```{r}
+pcac_mac_gpi_clientes %>% glimpse
+
+```
+
+
+**pcac_mac_gpi_ecas**: Especifica la relación del equipo comercial, es decir, información de los gerentes y sus ejecutivos asociados.
+
+```{r}
+pcac_mac_gpi_ecas %>% glimpse
+
+```
+
+**pcac_oportunidades_comer**: Contiene las oportunidades comerciales que cada cliente posee. Estas son generadas por un proceso independiente a este modelo.
+
+```{r}
+pcac_oportunidades_comer %>% glimpse
+
+```
+
+
+**pcac_mac_gpi_tenencia_prod:** Indica para cada cliente si ya posee un producto y de igual manera si lo utiliza.
+pcac_planta_comercial2: Especifica detalles de la planta comercial (Gerentes de inversión).
+
+```{r}
+pcac_mac_gpi_tenencia_prod %>% glimpse
+
+```
+
+
+**pcac_encuesta:** Define los valores de una encuesta realizada a los distintos equipos comerciales en todo el país donde se definen los tiempos que dedican a las distintas actividades en cada producto y la cantidad de veces que lo realizan en el año.
+pcac_capacidad_gerentes: establece el tiempo de atención disponible que tienen los gerentes para realizar sus actividades comerciales.
+
+```{r}
+pcac_encuesta %>% glimpse
+
+```
+
+
+# Procesamiento
+
+El procesamiento de los datos se documenta a continuación. Este procesamiento se lleva a cabo con el objeto de conocer los requerimientos de tiempo de los ejecutivos y el tiempo disponible de los gerentes. Estos tiempos son el insumo principal para el modelo.
+
+## Tiempo por producto
+
+En primera instancia es necesario conocer el tiempo requerido para las labores de cada producto. estos tiempos se encuentran dentro de los datos de la encuesta realizada a vendedores. Es posible obtener los tiempos mencionados utilizando el siguiente código.
+
+```{r}
+pcac_encuesta %>% 
+  group_by(cod_producto) %>% 
+  summarise(
+     tiempo_x_producto =
+       mean(total_promedio_tiempo_min_x_actividad, na.rm = TRUE)
+  ) %>% 
+  filter(
+    tiempo_x_producto != 0
+    ) -> tabla_producto_tiempo
+
+
+```
+
+El código anterior realiza las siguientes acciones:
+
+ - Agrupa los datos por producto.
+ 
+ - Obtiene el tiempo promedio por cada producto.
+ 
+ - Filtra los productos cuyos tiempos sean iguales a cero.
+
+## Tiempo por cliente
+
+En este punto el objetivo es conocer los tiempos requeridos por cliente. Tomando en consideración la base de datos de oportunidades comerciales, es posible establecer el tiempo requerido para prestar atención a las necesidades de cada cliente. Cada oportunidad está vinculada a un producto, de manera que el tiempo por cliente está dado popr la suma de los tiempos por producto.
+
+```{r}
+pcac_oportunidades_comer %>% 
+  left_join(tabla_producto_tiempo) %>% 
+  mutate(
+    tiempo_x_producto = replace_na(tiempo_x_producto, mean(tiempo_x_producto, na.rm = TRUE))
+  ) %>% 
+  group_by(num_doc_cli) %>% 
+  summarise(
+    tiempo_x_cliente =
+       sum(tiempo_x_producto, na.rm = TRUE)
+  ) -> tabla_cliente_tiempo 
+
+
+```
+
+El código anterior realiza las siguientes tareas:
+
+ - Cruza la tabla de oportunidades comerciales con la tabla de tiempo por producto.
+ 
+ - Para los productos que no tienen datos de tiempo, los imputa usando el valor medio de aquellos que sí tienen.
+ 
+ - Agrupa la base de datos por cliente.
+ 
+ - Obtiene los tiempos de cada cliente sumando los tiempos de sus productos.
+
+## Tiempo de cada ejecutivo
+
+El tiempo requerido por cada ejecutivo se obtiene a partir de la suma de los tiempos de atención requeridos por sus clientes. Este cálculo se lleva a cabo de la siguiente manera.
+
+
+```{r}
+pcac_mac_gpi_clientes %>% 
+  left_join(tabla_cliente_tiempo) %>% 
+  mutate(
+    tiempo_x_cliente = replace_na(tiempo_x_cliente, mean(tiempo_x_cliente, na.rm = TRUE))
+  ) %>% 
+  group_by(cod_ejec_bco) %>% 
+  summarise(
+    marca_a = sum(as.numeric(marca_mac_inv == "A")),
+    marca_b = sum(as.numeric(marca_mac_inv == "B")),
+    tiempo_x_ejecutivo =
+       sum(tiempo_x_cliente, na.rm = TRUE),
+    cod_region_ejec_bco = median(cod_region_ejec_bco),
+    clientes = n()
+  ) -> tabla_ejecutivo_tiempo_region_marca
+
+```
+
+Por medio de este código se efectúan las siguientes tareas.
+
+ - Cruzar la tabla de clientes con la tabla de tiempo por cliente.
+ 
+ - Imputar usando el valor medio del tiempo por cliente para los clientes que no presentan este dato.
+ 
+ - Agrupar los datos por ejecutivo.
+ 
+ - Obtener los tiempos de cada ejecutivo sumando los tiempos de sus clientes.
+ 
+ - Obtener la cantidad de clientes del grupo A por ejecutivo.
+
+ - Obtener la cantidad de clientes del grupo B por ejecutivo.
+ 
+ - Obtener la cantidad de clientes por ejecutivo.
+ 
+ - obtener la región de cada ejecutivo.
+
+## Tiempo por gerente
+
+El tiempo disponible de cada gerente de inversión está consignado en la tabla correspondiente. Es necesario revisar si el gerente se encuentra activo o retirado. También es pertinente tomar en consideración que la tabla de clientes proporciona información al respecto. En este sentido se toma la decisión de utilizar ambas tablas.
+
+```{r}
+pcac_mac_gpi_clientes %>% 
+  filter(estado_gte_inv == "ACTIVO") %>% 
+  select(cod_gte_inv, num_doc_gte_inv,  cod_region_gte_inv) %>% 
+  unique %>% 
+  left_join(pcac_capacidad_gerentes) %>% 
+    mutate(
+    tiempo_restante = replace_na(tiempo_restante, mean(tiempo_restante, na.rm = TRUE)),
+    sistematica_anual = NULL,
+    tiempo_instrum_resta = NULL,
+  ) -> tabla_gerente_tiempo_region
+
+```
+
+El código presentado permite:
+
+ - Filtrar los genrentes activos en la tabla de clientes.
+ 
+ - Seleccionar las columnas correspondientes al código del gerente y a su región.
+ 
+ - Retirar los registros repetidos, creando así una primera base de gerentes.
+ 
+ - Cruzar la base resultante con la base de datos de gerentes.
+ 
+ - Imputar usando el valor medio del tiempo por gerente para los gerentes que no presentan este dato.
+ 
+ - Retirar los campos de sistemática y tiempo de instrumentación.
+
+# Escritura
+ 
+Finalmente se realiza la escritura de las bases de datos de interés que serán trabajadas en otro archivo.
+ 
+ 
+```{r}
+write_rds(tabla_ejecutivo_tiempo_region_marca, "01_datos/tabla_ejecutivo_tiempo_region_marca.rds")
+
+write_rds(tabla_gerente_tiempo_region, "01_datos/tabla_gerente_tiempo_region.rds")
+
+```
+
+
