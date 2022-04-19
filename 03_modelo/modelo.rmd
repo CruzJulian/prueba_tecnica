@@ -431,7 +431,19 @@ Con esto claro, los pasos que se siguen para la optimización son:
  - Se genera la población inicial, 1.5 veces más grande que la requerida, con esto se garantiza mayor variedad en el proceso de selección aleatoria.
  
  - El proceso iterativo se realiza mediante la función programada para este fin. Las iteraciones se repiten el número especificado y se entrega una tabla de asignaciones final, en la que se encuentra la última generación producida y por ende, el óptimo.
- 
+
+## Despliegue
+
+Para desplegar la solución elaborada es suficiente con disponer de una máquina virtual cuya instalación de docker se encuentre actualizada. El presente proyecto se puede ejecutar al interior de un contenedor `rocker/shiny-verse` mediante un cron desatendido periódico, con una frecuencia mensual o quincenal según estime la organización.
+
+La asignación resultante se puede disponibilizar a través de un servicio web o directamente en un portal de capacidad.
+
+Para realizar estas tareas exitosamente es necesario contar con una estrategia de integración continua que permita iterar las rutinas de código y corregir factores críticos. 
+
+Es posible que sea necesario disminuir los hilos de la computación paralela al implementar el contenedor. La lectura de los datos debe hacerse vía consultas a bases sql del sistema de información del área. Esto también puede requerir un esfuerzo para la implementación de cambios en la alimentación del modelo.
+
+De manera que, la integración del modelo de optimización presentado se realiza sin mayores inconvenientes.
+
 # Implementación
 
 
