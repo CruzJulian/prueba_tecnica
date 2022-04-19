@@ -19,7 +19,7 @@ La configuración del entorno de trabajo adecuado es necesaria para el correcto 
 
 ## Paquetes
 
-La configuración del entorno en cuanto a software se realiza por medio del aprovisionamiento de paquetes. Todos los paquetes utilizados se encuentran disponibles bajo licencias de softare libre, la mayoría de estos paquetes ha sido desarrollado por la empresa RStudio, cuya labor a nivel mundial es reconocida como pionera en este campo.
+La configuración del entorno en cuanto a software se realiza por medio del aprovisionamiento de paquetes. Todos los paquetes utilizados se encuentran disponibles bajo licencias de software libre, la mayoría de estos paquetes ha sido desarrollado por la empresa RStudio, cuya labor a nivel mundial es reconocida como pionera en este campo.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE)
@@ -62,6 +62,12 @@ read_csv(
   "01_datos/pcac_mac_gpi_tenencia_prod.csv"
   ) -> pcac_mac_gpi_tenencia_prod
 
+read_csv(
+  "01_datos/pcac_planta_comercial2.csv"
+  ) -> pcac_planta_comercial2
+
+
+
 ```
 
 
@@ -74,7 +80,6 @@ Los conjuntos de datos son los siguientes:
 pcac_mac_gpi_clientes %>% glimpse
 
 ```
-
 
 **pcac_mac_gpi_ecas**: Especifica la relación del equipo comercial, es decir, información de los gerentes y sus ejecutivos asociados.
 
@@ -90,23 +95,34 @@ pcac_oportunidades_comer %>% glimpse
 
 ```
 
-
 **pcac_mac_gpi_tenencia_prod:** Indica para cada cliente si ya posee un producto y de igual manera si lo utiliza.
-pcac_planta_comercial2: Especifica detalles de la planta comercial (Gerentes de inversión).
 
 ```{r}
 pcac_mac_gpi_tenencia_prod %>% glimpse
 
 ```
 
-
 **pcac_encuesta:** Define los valores de una encuesta realizada a los distintos equipos comerciales en todo el país donde se definen los tiempos que dedican a las distintas actividades en cada producto y la cantidad de veces que lo realizan en el año.
-pcac_capacidad_gerentes: establece el tiempo de atención disponible que tienen los gerentes para realizar sus actividades comerciales.
 
 ```{r}
 pcac_encuesta %>% glimpse
 
 ```
+
+**pcac_capacidad_gerentes**: establece el tiempo de atención disponible que tienen los gerentes para realizar sus actividades comerciales.
+
+```{r}
+pcac_capacidad_gerentes %>% glimpse
+
+```
+
+**pcac_planta_comercial2:** Especifica detalles de la planta comercial (Gerentes de inversión).
+
+```{r}
+pcac_planta_comercial2 %>% glimpse
+
+```
+
 
 
 # Procesamiento
@@ -141,7 +157,7 @@ El código anterior realiza las siguientes acciones:
 
 ## Tiempo por cliente
 
-En este punto el objetivo es conocer los tiempos requeridos por cliente. Tomando en consideración la base de datos de oportunidades comerciales, es posible establecer el tiempo requerido para prestar atención a las necesidades de cada cliente. Cada oportunidad está vinculada a un producto, de manera que el tiempo por cliente está dado popr la suma de los tiempos por producto.
+En este punto el objetivo es conocer los tiempos requeridos por cliente. Tomando en consideración la base de datos de oportunidades comerciales, es posible establecer el tiempo requerido para prestar atención a las necesidades de cada cliente. Cada oportunidad está vinculada a un producto, de manera que el tiempo por cliente está dado por la suma de los tiempos por producto.
 
 ```{r}
 pcac_oportunidades_comer %>% 
